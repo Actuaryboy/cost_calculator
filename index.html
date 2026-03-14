@@ -1633,9 +1633,12 @@
   /* -------------------------------------------
      WORKSHEET — INIT & EVENT BINDING
      ------------------------------------------- */
-  document.getElementById('total-players').addEventListener('input', calculate);
-  document.getElementById('sessions-simple').addEventListener('input', calculate);
-  document.getElementById('sessions-refined').addEventListener('input', calculate);
+
+  // Use event delegation on parent container — catches all input/change
+  // events from any form control (simple inputs, refined inputs, age-group rows)
+  var worksheetControls = document.querySelector('.worksheet-controls');
+  worksheetControls.addEventListener('input', function() { calculate(); });
+  worksheetControls.addEventListener('change', function() { calculate(); });
 
   // Init one refined-mode row and run initial calculation
   addAgeGroupRow();
