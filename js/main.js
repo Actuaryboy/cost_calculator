@@ -85,45 +85,59 @@
   });
 
   /* -------------------------------------------
-     WORKSHEET — CALCULATION MODEL (declare first)
+     WORKSHEET — CALCULATION MODEL
      ------------------------------------------- */
 
-  // Fixed costs: [taskName, midYours, midMax]
+  // Fixed costs: [taskName, [loYours, hiYours], [loMax, hiMax]]
   const FIXED_TASKS = [
-    ['Building the evaluation session schedule', 8, 1],
-    ['Post-evaluation director review sessions', 6, 1],
-    ['Goalie evaluation coordination', 4.5, 1]
+    ['Building the evaluation session schedule',  [6, 10],  [0.5, 1.5]],
+    ['Post-evaluation director review sessions',  [4, 8],   [0.5, 1.5]],
+    ['Goalie evaluation coordination',            [3, 6],   [0.5, 1.5]]
   ];
 
-  // Variable costs: [taskName, rateYours (min/player), rateMax (min/player), perSession]
-  // perSession: true means rate is per player per session; false means per player only
+  // Variable costs: [taskName, [loYours, hiYours] min/player, [loMax, hiMax] min/player, perSession]
+  // perSession: true  → rate is per player per session
+  //             false → rate is per player across whole process
   const VARIABLE_TASKS = [
-    ['Communicating ice times to players/parents', 15, 0, false],
-    ['Assigning players to each evaluation session', 5, 0, true],
-    ['Check-in management at the rink', 3, 0, true],
-    ['Manual score entry', 4, 0, true],
-    ['Auditing results and catching errors', 6.5, 0, false],
-    ['Building level groupings from results', 5.5, 1, false],
-    ['Producing and distributing player feedback/report cards', 10, 0, false]
+    ['Communicating ice times to players/parents',       [12, 18], [0, 0],      false],
+    ['Assigning players to each evaluation session',     [4,  6],  [0, 0],      true],
+    ['Check-in management at the rink',                  [1,  2],  [0, 0],      true],
+    ['Manual score entry',                               [3,  5],  [0, 0],      true],
+    ['Auditing results and catching errors',             [5,  8],  [0, 0],      false],
+    ['Building level groupings from results',            [4,  7],  [0.5, 1.5],  false],
+    ['Post-placement parent appeals & communications',   [4,  8],  [1,  2],     false]
   ];
 
-  const resultsTbody = document.getElementById('results-tbody');
-  const calloutYours = document.getElementById('callout-yours');
-  const calloutSavedInline = document.getElementById('callout-saved-inline');
-  const calloutDays = document.getElementById('callout-days');
+  const resultsTbody  = document.getElementById('results-tbody');
+  const calloutYours  = document.getElementById('callout-yours');
+  const calloutSaved  = document.getElementById('callout-saved-inline');
+  const calloutDays   = document.getElementById('callout-days');
 
   function getInputs() {
     let players, sessions;
-
     if (currentMode === 'simple') {
-      players = parseInt(document.getElementById('total-players').value) || 0;
+      players  = parseInt(document.getElementById('total-players').value)  || 0;
       sessions = parseInt(document.getElementById('sessions-simple').value) || 0;
     } else {
-      players = ageGroupRows.reduce((sum, r) => sum + r.players, 0);
+      players  = ageGroupRows.reduce((sum, r) => sum + r.players, 0);
       sessions = parseInt(document.getElementById('sessions-refined').value) || 0;
     }
-
     return { players, sessions };
+  }
+
+  function calcRange(rates, players, sessions, perSession) {
+    return rates.map(rate => {
+      const raw = perSession
+        ? (rate * players * sessions) / 60
+        : (rate * players) / 60;
+      return raw;
+    });
+  }
+
+  function fmt(lo, hi) {
+    const rlo = Math.round(lo);
+    const rhi = Math.round(hi);
+    return rlo === rhi ? rlo + ' hrs' : rlo + '–' + rhi + ' hrs';
   }
 
   function calculate() {
@@ -131,66 +145,70 @@
     const hasData = players > 0 && sessions > 0;
 
     let html = '';
-    let totalYours = 0;
-    let totalMax = 0;
+    let totalYoursLo = 0, totalYoursHi = 0;
+    let totalMaxLo   = 0, totalMaxHi   = 0;
 
     // Fixed costs
     html += '<tr><td class="task-type-label" colspan="4">Fixed Costs</td></tr>';
-    FIXED_TASKS.forEach(([name, yours, max]) => {
-      const saved = yours - max;
-      totalYours += yours;
-      totalMax += max;
-      html += taskRow(name, yours, max, saved, hasData, true);
+    FIXED_TASKS.forEach(([name, yoursRange, maxRange]) => {
+      const [ylo, yhi] = yoursRange;
+      const [mlo, mhi] = maxRange;
+      totalYoursLo += ylo; totalYoursHi += yhi;
+      totalMaxLo   += mlo; totalMaxHi   += mhi;
+      html += taskRow(name, ylo, yhi, mlo, mhi, hasData, true);
     });
 
     // Variable costs
     html += '<tr><td class="task-type-label" colspan="4">Variable Costs</td></tr>';
-    VARIABLE_TASKS.forEach(([name, rateYours, rateMax, perSession]) => {
-      let yours, max;
-      if (perSession) {
-        yours = (rateYours * players * sessions) / 60;
-        max = (rateMax * players * sessions) / 60;
-      } else {
-        yours = (rateYours * players) / 60;
-        max = (rateMax * players) / 60;
-      }
-      const saved = yours - max;
-      totalYours += yours;
-      totalMax += max;
-      html += taskRow(name, yours, max, saved, hasData, false);
+    VARIABLE_TASKS.forEach(([name, yoursRange, maxRange, perSession]) => {
+      const [ylo, yhi] = hasData
+        ? calcRange(yoursRange, players, sessions, perSession)
+        : [0, 0];
+      const [mlo, mhi] = hasData
+        ? calcRange(maxRange, players, sessions, perSession)
+        : [0, 0];
+      totalYoursLo += ylo; totalYoursHi += yhi;
+      totalMaxLo   += mlo; totalMaxHi   += mhi;
+      html += taskRow(name, ylo, yhi, mlo, mhi, hasData, false);
     });
 
     // Total row
-    const totalSaved = totalYours - totalMax;
+    const savedLo = totalYoursLo - totalMaxHi;
+    const savedHi = totalYoursHi - totalMaxLo;
     html += '<tr class="row-total">';
     html += '<td>Total</td>';
-    html += '<td class="col-yours">' + (hasData ? Math.round(totalYours) + ' hrs' : '—') + '</td>';
-    html += '<td class="col-max">' + (hasData ? Math.round(totalMax) + ' hrs' : '—') + '</td>';
-    html += '<td class="col-saved">' + (hasData ? Math.round(totalSaved) + ' hrs' : '—') + '</td>';
+    html += '<td class="col-yours">'  + (hasData ? fmt(totalYoursLo, totalYoursHi) : '—') + '</td>';
+    html += '<td class="col-max">'    + (hasData ? fmt(totalMaxLo,   totalMaxHi)   : '—') + '</td>';
+    html += '<td class="col-saved">'  + (hasData ? fmt(savedLo, savedHi)           : '—') + '</td>';
     html += '</tr>';
 
     resultsTbody.innerHTML = html;
 
     // Callout boxes
     if (hasData) {
-      calloutYours.textContent = Math.round(totalYours) + ' hrs';
-      calloutSavedInline.textContent = Math.round(totalSaved) + ' hrs';
-      calloutDays.textContent = Math.round(totalSaved / 8) + ' days';
+      calloutYours.textContent = fmt(totalYoursLo, totalYoursHi);
+      calloutSaved.textContent = fmt(savedLo, savedHi);
+      calloutDays.textContent  =
+        Math.round(savedLo / 8) + '–' + Math.round(savedHi / 8) + ' days';
     } else {
       calloutYours.textContent = '— hrs';
-      calloutSavedInline.textContent = '—';
-      calloutDays.textContent = '— days';
+      calloutSaved.textContent = '—';
+      calloutDays.textContent  = '— days';
     }
   }
 
-  function taskRow(name, yours, max, saved, hasData, isFixed) {
+  function taskRow(name, ylo, yhi, mlo, mhi, hasData, isFixed) {
+    const savedLo = ylo - mhi;
+    const savedHi = yhi - mlo;
+    const dash = '<td class="col-yours">—</td><td class="col-max">—</td><td class="col-saved">—</td>';
     if (!hasData && !isFixed) {
-      return '<tr><td>' + name + '</td><td class="col-yours">—</td><td class="col-max">—</td><td class="col-saved">—</td></tr>';
+      return '<tr><td>' + name + '</td>' + dash + '</tr>';
     }
     return '<tr><td>' + name + '</td>' +
-      '<td class="col-yours">' + Math.round(yours) + ' hrs</td>' +
-      '<td class="col-max">' + Math.round(max) + ' hrs</td>' +
-      '<td class="col-saved">' + Math.round(saved) + ' hrs</td></tr>';
+      '<td class="col-yours">' + fmt(ylo, yhi) + '</td>' +
+      '<td class="col-max">'   + fmt(mlo, mhi) + '</td>' +
+      '<td class="col-saved">' + fmt(savedLo, savedHi) + '</td>' +
+      '</tr>';
   }
 
   /* -------------------------------------------
@@ -201,7 +219,7 @@
   let rowIdCounter = 0;
 
   const ageGroupTbody = document.getElementById('age-group-tbody');
-  const btnAddRow = document.getElementById('btn-add-row');
+  const btnAddRow     = document.getElementById('btn-add-row');
 
   function getSelectedAgeGroups() {
     return ageGroupRows.map(r => r.ageGroup).filter(Boolean);
@@ -222,9 +240,7 @@
 
   function updateRemoveButtons() {
     const btns = ageGroupTbody.querySelectorAll('.btn-remove-row');
-    btns.forEach(btn => {
-      btn.disabled = ageGroupRows.length <= 1;
-    });
+    btns.forEach(btn => { btn.disabled = ageGroupRows.length <= 1; });
   }
 
   function addAgeGroupRow() {
@@ -249,7 +265,6 @@
 
     ageGroupTbody.appendChild(tr);
 
-    // Events
     tr.querySelector('select').addEventListener('change', function() {
       rowData.ageGroup = this.value;
       updateDropdowns();
@@ -283,14 +298,10 @@
   /* -------------------------------------------
      WORKSHEET — INIT & EVENT BINDING
      ------------------------------------------- */
-
-  // Use event delegation on parent container — catches all input/change
-  // events from any form control (simple inputs, refined inputs, age-group rows)
   var worksheetControls = document.querySelector('.worksheet-controls');
-  worksheetControls.addEventListener('input', function() { calculate(); });
+  worksheetControls.addEventListener('input',  function() { calculate(); });
   worksheetControls.addEventListener('change', function() { calculate(); });
 
-  // Init one refined-mode row and run initial calculation
   addAgeGroupRow();
   calculate();
 

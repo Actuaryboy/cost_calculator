@@ -597,6 +597,57 @@ input, select { font-family: inherit; }
   padding-top: 1.25rem;
 }
 
+/* Missed Opportunities */
+.missed-opportunities {
+  margin-top: 2.5rem;
+  padding: 2rem;
+  background: #f5f5f0;
+  border-radius: 10px;
+  border-left: 4px solid #67823a;
+}
+
+.missed-opportunities__heading {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #373a36;
+  margin-bottom: 1.25rem;
+}
+
+.missed-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+}
+
+.missed-card {
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 1.25rem 1.25rem 1rem;
+}
+
+.missed-card__title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #373a36;
+  margin-bottom: 0.5rem;
+}
+
+.missed-card p {
+  font-size: 0.875rem;
+  color: #5a5d58;
+  line-height: 1.65;
+  margin-bottom: 0.75rem;
+}
+
+.missed-card__max {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #67823a;
+  line-height: 1.5;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e5e5e0;
+}
+
 /* Callout boxes */
 .callout-boxes {
   display: grid;
@@ -863,6 +914,10 @@ input, select { font-family: inherit; }
   }
 
   .callout-boxes {
+    grid-template-columns: 1fr;
+  }
+
+  .missed-grid {
     grid-template-columns: 1fr;
   }
 
