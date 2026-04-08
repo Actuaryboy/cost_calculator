@@ -95,17 +95,37 @@
     ['Goalie evaluation coordination',            [3, 6],   [0.5, 1.5]]
   ];
 
-  // Variable costs: [taskName, [loYours, hiYours] min/player, [loMax, hiMax] min/player, perSession]
-  // perSession: true  → rate is per player per session
-  //             false → rate is per player across whole process
+  // Variable costs — each entry is an object:
+  //   yoursRate: [lo, hi] in min/player (scaled by players, and sessions if perSession: true)
+  //   perSession: true → rate is per player per session; false → per player across whole process
+  //   maxRate: [lo, hi] min/player — scaled same as yoursRate
+  //   maxFixed: [lo, hi] hrs — overrides maxRate; Max cost is a flat number regardless of player count
   const VARIABLE_TASKS = [
-    ['Communicating ice times to players/parents',       [12, 18], [0, 0],      false],
-    ['Assigning players to each evaluation session',     [4,  6],  [0, 0],      true],
-    ['Check-in management at the rink',                  [1,  2],  [0, 0],      true],
-    ['Manual score entry',                               [3,  5],  [0, 0],      true],
-    ['Auditing results and catching errors',             [5,  8],  [0, 0],      false],
-    ['Building level groupings from results',            [4,  7],  [0.5, 1.5],  false],
-    ['Post-placement parent appeals & communications',   [4,  8],  [1,  2],     false]
+    {
+      name: 'Communicating ice times to players/parents',
+      yoursRate: [12, 18], perSession: false,
+      maxFixed: [1, 2]
+    },
+    {
+      name: 'Assigning players to each ice time',
+      yoursRate: [4, 6], perSession: true,
+      maxFixed: [1, 2]
+    },
+    {
+      name: 'Manual score entry',
+      yoursRate: [3, 5], perSession: true,
+      maxRate: [0, 0]
+    },
+    {
+      name: 'Forming teams within each tier',
+      yoursRate: [4, 7], perSession: false,
+      maxRate: [0.5, 1.5]
+    },
+    {
+      name: 'Post-placement parent appeals & communications',
+      yoursRate: [4, 8], perSession: false,
+      maxRate: [1, 2]
+    }
   ];
 
   const resultsTbody  = document.getElementById('results-tbody');
@@ -160,13 +180,14 @@
 
     // Variable costs
     html += '<tr><td class="task-type-label" colspan="4">Variable Costs</td></tr>';
-    VARIABLE_TASKS.forEach(([name, yoursRange, maxRange, perSession]) => {
+    VARIABLE_TASKS.forEach(task => {
+      const { name, yoursRate, perSession, maxRate, maxFixed } = task;
       const [ylo, yhi] = hasData
-        ? calcRange(yoursRange, players, sessions, perSession)
+        ? calcRange(yoursRate, players, sessions, perSession)
         : [0, 0];
-      const [mlo, mhi] = hasData
-        ? calcRange(maxRange, players, sessions, perSession)
-        : [0, 0];
+      const [mlo, mhi] = maxFixed
+        ? maxFixed
+        : hasData ? calcRange(maxRate, players, sessions, perSession) : [0, 0];
       totalYoursLo += ylo; totalYoursHi += yhi;
       totalMaxLo   += mlo; totalMaxHi   += mhi;
       html += taskRow(name, ylo, yhi, mlo, mhi, hasData, false);
